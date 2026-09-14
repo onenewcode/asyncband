@@ -41,10 +41,10 @@ Tokio is not in this table: it overwrites at capacity.
 
 ### Round trip (1 producer, 1 receiver)
 
-| Bench              | async-broadcast | spmc     | mpmc 1P  |
-| ------------------ | --------------- | -------- | -------- |
-| `try_round_trip`   | 22.9 ns         | 36.9 ns  | 34.6 ns  |
-| `ready_round_trip` | 39.3 ns         | 77.3 ns  | 39.7 ns  |
+| Bench              | async-broadcast | spmc    | mpmc 1P |
+| ------------------ | --------------- | ------- | ------- |
+| `try_round_trip`   | 24.5 ns         | 13.4 ns | 32.7 ns |
+| `ready_round_trip` | 38.6 ns         | 17.2 ns | 44.3 ns |
 
 ### Native threads (`concurrent`)
 
@@ -52,23 +52,23 @@ Lower time is better. 4096 messages.
 
 | Shape            | async-broadcast | spmc     | mpmc 1P  |
 | ---------------- | --------------- | -------- | -------- |
-| cap 1 / 1 recv   | 14.9 ms         | 13.0 ms  | 15.1 ms  |
-| cap 1 / 8 recv   | 121.7 ms        | 82.2 ms  | 77.5 ms  |
-| cap 1 / 32 recv  | 528.4 ms        | 240.4 ms | 238.5 ms |
-| cap 64 / 1 recv  | 503 µs          | 448 µs   | 505 µs   |
-| cap 64 / 8 recv  | 10.1 ms         | 14.4 ms  | 14.2 ms  |
-| cap 64 / 32 recv | 40.2 ms         | 178 ms   | 177 ms   |
+| cap 1 / 1 recv   | 14.9 ms         | 9.05 ms  | 14.9 ms  |
+| cap 1 / 8 recv   | 121.7 ms        | 71.9 ms  | 75.5 ms  |
+| cap 1 / 32 recv  | 521.9 ms        | 216 ms   | 231 ms   |
+| cap 64 / 1 recv  | 488 µs          | 230 µs   | 517 µs   |
+| cap 64 / 8 recv  | 10.6 ms         | 21.0 ms  | 13.9 ms  |
+| cap 64 / 32 recv | 39.7 ms         | 154 ms   | 175 ms   |
 
 ### Tokio 4-worker (`scheduled`)
 
 | Shape            | async-broadcast | spmc    | mpmc 1P |
 | ---------------- | --------------- | ------- | ------- |
-| cap 1 / 1 recv   | 1.21 ms         | 718 µs  | 892 µs  |
-| cap 1 / 8 recv   | 13.5 ms         | 4.90 ms | 5.20 ms |
-| cap 1 / 32 recv  | 67.3 ms         | 28.9 ms | 28.5 ms |
-| cap 64 / 1 recv  | 207 µs          | 241 µs  | 230 µs  |
-| cap 64 / 8 recv  | 2.13 ms         | 2.30 ms | 2.26 ms |
-| cap 64 / 32 recv | 5.94 ms         | 8.00 ms | 8.01 ms |
+| cap 1 / 1 recv   | 1.24 ms         | 565 µs  | 932 µs  |
+| cap 1 / 8 recv   | 14.3 ms         | 3.60 ms | 5.26 ms |
+| cap 1 / 32 recv  | 68.3 ms         | 14.9 ms | 29.1 ms |
+| cap 64 / 1 recv  | 228 µs          | 109 µs  | 243 µs  |
+| cap 64 / 8 recv  | 2.18 ms         | 409 µs  | 2.24 ms |
+| cap 64 / 32 recv | 6.02 ms         | 1.09 ms | 7.84 ms |
 
 ## Unbounded (non-blocking batch)
 
@@ -78,23 +78,21 @@ Tokio and async-broadcast are given capacity 4096 so the batch fits without lag 
 
 | Bench              | async-broadcast | tokio   | spmc    | mpmc 1P |
 | ------------------ | --------------- | ------- | ------- | ------- |
-| `try_round_trip`   | 24.6 ns         | 17.0 ns | 33.7 ns | 32.7 ns |
-| `ready_round_trip` | 24.1 ns         | 22.2 ns | 37.5 ns | 35.3 ns |
+| `try_round_trip`   | 24.1 ns         | 16.6 ns | 12.7 ns | 33.4 ns |
+| `ready_round_trip` | 25.7 ns         | 21.7 ns | 16.1 ns | 35.3 ns |
 
 ### Fan-out (publish 4096, then every subscription drains)
 
 | Receivers | async-broadcast | tokio   | spmc    | mpmc 1P |
 | --------- | --------------- | ------- | ------- | ------- |
-| 1         | 110 µs          | 124 µs  | 171 µs  | 142 µs  |
-| 2         | 222 µs          | 150 µs  | 255 µs  | 258 µs  |
-| 4         | 429 µs          | 175 µs  | 681 µs  | 641 µs  |
-| 8         | 902 µs          | 196 µs  | 1.58 ms | 1.48 ms |
-| 32        | 3.31 ms         | 593 µs  | 5.89 ms | 5.42 ms |
+| 1         | 125 µs          | 124 µs  | 74.7 µs | 169 µs  |
+| 2         | 220 µs          | 151 µs  | 123 µs  | 249 µs  |
+| 4         | 393 µs          | 163 µs  | 144 µs  | 608 µs  |
+| 8         | 894 µs          | 200 µs  | 302 µs  | 1.37 ms |
+| 32        | 3.21 ms         | 554 µs  | 949 µs  | 5.00 ms |
 
 ## Reading
 
-Against `async-broadcast` on the lossless bounded wait path, `spmc` is faster when capacity is 1 (especially on the Tokio runtime: about 1.7× at 1 receiver, 2.7× at 8, 2.3× at 32). With capacity 64 and many receivers, `async-broadcast` pulls ahead.
+Slots now hold `T` directly. Round trips and unbounded fan-out at 1–4 receivers beat every lossless peer and Tokio. Scheduled bounded runs also lead, including cap 64 / 32 receivers (`1.09 ms` vs `async-broadcast` `6.02 ms`).
 
-Against `tokio::sync::broadcast` on the unbounded non-blocking path, Tokio is faster. That channel overwrites when full; this comparison only uses it with room for the whole batch.
-
-Against 1-producer `broadcast::mpmc`, `spmc` is in the same band. The exclusive-send API is the reason to pick `spmc`, not a general throughput win over that 1-producer MPMC path.
+Native-thread cap 64 with 8 and 32 receivers still trails `async-broadcast` (`21.0 ms` / `154 ms` vs `10.6 ms` / `39.7 ms`). Unbounded fan-out at 8 and 32 receivers is within about 1.5–1.7× of Tokio’s lossy ring (`302 µs` / `949 µs` vs `200 µs` / `554 µs`). Those cells are the remaining 1.5× misses: send still takes the waiter mutex, and many OS threads RMW the same slot `remaining` count.
